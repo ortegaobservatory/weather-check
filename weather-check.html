@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ortega Weather Check</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #FBFAF8;
+    --surface: #FFFFFF;
+    --ink: #262626;
+    --muted: #5F6B73;
+    --line: #E2E1DD;
+    --orange: #E9892B;
+    --moon: #5E8197;
+    --go: #2E7D4F;
+    --go-bg: #E3F2E8;
+    --maybe: #9A6A00;
+    --maybe-bg: #FBEFCF;
+    --nogo: #B3261E;
+    --nogo-bg: #F9E1DE;
+    --none-bg: #EEEDEA;
+    --radius-lg: 14px;
+    --radius-sm: 6px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --bg: #191919;
+      --surface: #222326;
+      --ink: #EDEDEA;
+      --muted: #A4ADB3;
+      --line: #36383C;
+      --orange: #F4A04B;
+      --moon: #8FB0C4;
+      --go: #6CCB8F;
+      --go-bg: #1E3627;
+      --maybe: #F0C24B;
+      --maybe-bg: #3A3016;
+      --nogo: #F08A80;
+      --nogo-bg: #3E2220;
+      --none-bg: #2C2D30;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Atkinson Hyperlegible", "Segoe UI", system-ui, -apple-system, sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+    padding: 20px 18px 28px;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; }
+
+  header { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+  header h1 { font-size: 1.05rem; margin: 0; font-weight: 700; }
+  header .sub { color: var(--muted); font-size: 0.9rem; }
+
+  form.controls {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px 12px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    padding: 14px;
+  }
+  label { display: flex; flex-direction: column; gap: 4px; font-size: 0.85rem; color: var(--muted); }
+  input, select, button {
+    font: inherit;
+    color: var(--ink);
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    padding: 7px 9px;
+    min-height: 38px;
+  }
+  input:focus-visible, select:focus-visible, button:focus-visible, summary:focus-visible {
+    outline: 2px solid var(--orange);
+    outline-offset: 2px;
+  }
+  .place-search { grid-column: 1 / -1; display: none; gap: 8px; }
+  .place-search.show { display: flex; flex-wrap: wrap; }
+  .place-search input { flex: 1 1 220px; }
+  .place-results { display: flex; flex-wrap: wrap; gap: 6px; width: 100%; }
+  .place-results button { min-height: 32px; padding: 4px 10px; font-size: 0.85rem; }
+  button.primary {
+    background: var(--ink);
+    color: var(--bg);
+    border-color: var(--ink);
+    font-weight: 700;
+    cursor: pointer;
+    align-self: end;
+  }
+  button { cursor: pointer; }
+
+  /* Verdict: the one bold element */
+  .verdict {
+    margin-top: 18px;
+    border-radius: var(--radius-lg);
+    padding: 18px 20px 20px;
+    background: var(--none-bg);
+  }
+  .verdict.go { background: var(--go-bg); }
+  .verdict.maybe { background: var(--maybe-bg); }
+  .verdict.nogo { background: var(--nogo-bg); }
+  .verdict-word {
+    font-size: clamp(2.6rem, 9vw, 4.2rem);
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: 0.01em;
+    margin: 0 0 8px;
+  }
+  .verdict.go .verdict-word { color: var(--go); }
+  .verdict.maybe .verdict-word { color: var(--maybe); }
+  .verdict.nogo .verdict-word { color: var(--nogo); }
+  .verdict-where { font-size: 1rem; margin: 0 0 10px; }
+  .reasons { margin: 0; padding-left: 1.1em; max-width: 62ch; }
+  .reasons li { margin: 2px 0; }
+  .sunline { margin: 12px 0 0; color: var(--muted); font-size: 0.92rem; }
+  .sunline strong { color: var(--ink); }
+
+  /* Sky strip */
+  .strip-head { display: flex; justify-content: space-between; align-items: baseline; margin: 20px 0 8px; gap: 8px; flex-wrap: wrap; }
+  .strip-head h2 { font-size: 1rem; margin: 0; }
+  .legend { display: flex; gap: 12px; font-size: 0.82rem; color: var(--muted); flex-wrap: wrap; }
+  .legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+  .legend .l-go::before { background: var(--go); }
+  .legend .l-maybe::before { background: var(--maybe); }
+  .legend .l-nogo::before { background: var(--nogo); }
+
+  .strip-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--surface); }
+  table.strip { border-collapse: collapse; width: 100%; min-width: 520px; font-size: 0.9rem; }
+  table.strip th, table.strip td { text-align: center; padding: 7px 6px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  table.strip th[scope="row"] { text-align: left; color: var(--muted); font-weight: 400; padding-left: 12px; position: sticky; left: 0; background: var(--surface); }
+  table.strip tr:last-child td, table.strip tr:last-child th { border-bottom: 0; }
+  table.strip thead th { font-weight: 700; }
+  td.cell-go { color: var(--go); }
+  td.cell-maybe { color: var(--maybe); font-weight: 700; }
+  td.cell-nogo { color: var(--nogo); font-weight: 700; }
+  .bar { height: 10px; border-radius: 3px; }
+  .bar.go { background: var(--go); }
+  .bar.maybe { background: var(--maybe); }
+  .bar.nogo { background: var(--nogo); }
+
+  .csc-note { color: var(--muted); font-size: 0.9rem; margin: 0 0 10px; max-width: 70ch; }
+  .csc-note strong { color: var(--ink); }
+  .csc-note a { color: var(--moon); }
+  .csc-scroll { overflow-x: auto; background: #FFFFFF; border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 10px; }
+  .csc-scroll img { display: block; max-width: none; height: auto; }
+
+  details.thresholds { margin-top: 18px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 10px 14px; }
+  details.thresholds summary { cursor: pointer; font-weight: 700; }
+  .t-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px 12px; margin-top: 12px; }
+  .t-note { color: var(--muted); font-size: 0.85rem; margin: 10px 0 2px; }
+  .t-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+
+  .message { margin-top: 18px; padding: 14px 16px; border-radius: var(--radius-lg); background: var(--none-bg); }
+  footer { margin-top: 18px; color: var(--muted); font-size: 0.8rem; }
+  footer a { color: var(--moon); }
+  .hidden { display: none !important; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .verdict.reveal { animation: rise 280ms ease-out; }
+    @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Ortega weather check</h1>
+    <span class="sub">Go / no-go forecast for an event</span>
+  </header>
+
+  <form class="controls" id="controls" autocomplete="off">
+    <label>Place
+      <select id="place">
+        <option value="ortega">Ortega Observatory (Florida Tech)</option>
+        <option value="kscvc">Kennedy Space Center Visitor Complex</option>
+        <option value="custom">Another place…</option>
+      </select>
+    </label>
+    <label>Date
+      <input type="date" id="date" required>
+    </label>
+    <label>Type of event
+      <select id="type">
+        <option value="night">Night observing</option>
+        <option value="day">Daytime solar</option>
+      </select>
+    </label>
+    <label>Starts
+      <input type="time" id="start" step="1800">
+    </label>
+    <label>Ends
+      <input type="time" id="end" step="1800">
+    </label>
+    <button type="submit" class="primary">Check forecast</button>
+
+    <div class="place-search" id="placeSearch">
+      <input type="search" id="placeQuery" placeholder="School, park, or city name">
+      <button type="button" id="placeFind">Find place</button>
+      <div class="place-results" id="placeResults" aria-live="polite"></div>
+    </div>
+  </form>
+
+  <div id="message" class="message hidden" role="status"></div>
+
+  <section id="result" class="hidden" aria-live="polite">
+    <div class="verdict" id="verdict">
+      <p class="verdict-word" id="verdictWord"></p>
+      <p class="verdict-where" id="verdictWhere"></p>
+      <ul class="reasons" id="reasons"></ul>
+      <p class="sunline" id="sunline"></p>
+    </div>
+
+    <div class="strip-head">
+      <h2>Hour by hour</h2>
+      <div class="legend" aria-hidden="true">
+        <span class="l-go">Go</span><span class="l-maybe">Maybe</span><span class="l-nogo">No-go</span>
+      </div>
+    </div>
+    <div class="strip-scroll">
+      <table class="strip" id="strip"></table>
+    </div>
+
+    <div id="csc" class="csc hidden">
+      <div class="strip-head">
+        <h2>Astronomy forecast: Melbourne Clear Sky Chart</h2>
+      </div>
+      <p class="csc-note">Each column is one hour (24-hour time). For observing, look for dark blue in the <strong>Cloud Cover</strong> and <strong>Transparency</strong> rows, and in <strong>Seeing</strong> for sharp planets. <strong>Darkness</strong> shows when the sky is dark and how much the Moon brightens it. Tap the chart for the full legend.</p>
+      <div class="csc-scroll">
+        <a href="https://www.cleardarksky.com/c/MlbrnFLkey.html" target="_blank" rel="noopener"><img src="https://www.cleardarksky.com/c/MlbrnFLcsk.gif?c=1267210" alt="Clear Sky Chart for Melbourne, Florida: hourly cloud cover, transparency, seeing, darkness, wind, humidity, and temperature forecast for astronomers"></a>
+      </div>
+    </div>
+    <p id="cscOther" class="csc-note hidden">For astronomy-specific conditions (seeing and transparency), find the nearest chart on the <a href="https://www.cleardarksky.com/csk/prov/Florida_charts.html" target="_blank" rel="noopener">Clear Sky Chart list for Florida</a>.</p>
+  </section>
+
+  <details class="thresholds" id="thresholds">
+    <summary>Go / no-go thresholds</summary>
+    <p class="t-note">These match the starting values on the Weather Go/No-Go wiki page. Change them here to match what the team agrees on; this browser remembers your settings.</p>
+    <div class="t-grid">
+      <label>Cloud cover: maybe above (%)<input type="number" min="0" max="100" id="cloudMaybe"></label>
+      <label>Cloud cover: no-go above (%)<input type="number" min="0" max="100" id="cloudNoGo"></label>
+      <label>Rain chance: maybe above (%)<input type="number" min="0" max="100" id="rainMaybe"></label>
+      <label>Rain chance: no-go above (%)<input type="number" min="0" max="100" id="rainNoGo"></label>
+      <label>Wind: maybe above (mph)<input type="number" min="0" id="windMaybe"></label>
+      <label>Wind: no-go above (mph)<input type="number" min="0" id="windNoGo"></label>
+      <label>Gusts: no-go above (mph)<input type="number" min="0" id="gustNoGo"></label>
+    </div>
+    <div class="t-actions">
+      <button type="button" id="saveThresholds">Save thresholds</button>
+      <button type="button" id="resetThresholds">Reset to defaults</button>
+    </div>
+  </details>
+
+  <footer>
+    <span id="updated"></span>
+    The go / no-go verdict uses weather forecasts from <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a>. The astronomy forecast is the <a href="https://www.cleardarksky.com/c/MlbrnFLkey.html" target="_blank" rel="noopener">Clear Sky Chart</a> by Clear Dark Sky, from the Canadian Meteorological Centre's astronomy model. Thunderstorms always mean no-go: if you hear thunder, pack up and go indoors.
+  </footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  const PLACES = {
+    ortega: { name: "Ortega Observatory", lat: 28.0652, lon: -80.6238 },
+    kscvc:  { name: "Kennedy Space Center Visitor Complex", lat: 28.5244, lon: -80.6819 }
+  };
+  const DEFAULTS = { cloudMaybe: 30, cloudNoGo: 60, rainMaybe: 20, rainNoGo: 40, windMaybe: 10, windNoGo: 15, gustNoGo: 25 };
+  const STORE_KEY = "ortega-weather-thresholds";
+  const THUNDER = new Set([95, 96, 99]);
+  const WEATHER = {
+    0: "Clear", 1: "Mostly clear", 2: "Partly cloudy", 3: "Overcast", 45: "Fog", 48: "Fog",
+    51: "Drizzle", 53: "Drizzle", 55: "Drizzle", 56: "Freezing drizzle", 57: "Freezing drizzle",
+    61: "Light rain", 63: "Rain", 65: "Heavy rain", 66: "Freezing rain", 67: "Freezing rain",
+    71: "Snow", 73: "Snow", 75: "Snow", 77: "Snow", 80: "Showers", 81: "Showers", 82: "Heavy showers",
+    85: "Snow showers", 86: "Snow showers", 95: "Thunderstorms", 96: "Thunderstorms", 99: "Thunderstorms"
+  };
+
+  const $ = (id) => document.getElementById(id);
+  let custom = null;           // { name, lat, lon } chosen via search
+  let lastSunset = null;       // "HH:MM" of last fetched sunset, used for night defaults
+
+  // ---------- thresholds ----------
+  function loadThresholds() {
+    let t = { ...DEFAULTS };
+    try {
+      const raw = localStorage.getItem(STORE_KEY);
+      if (raw) t = { ...t, ...JSON.parse(raw) };
+    } catch (e) { /* storage unavailable: use defaults */ }
+    Object.keys(DEFAULTS).forEach((k) => { $(k).value = t[k]; });
+    return t;
+  }
+  function readThresholds() {
+    const t = {};
+    Object.keys(DEFAULTS).forEach((k) => {
+      const v = parseFloat($(k).value);
+      t[k] = Number.isFinite(v) ? v : DEFAULTS[k];
+    });
+    return t;
+  }
+  $("saveThresholds").addEventListener("click", () => {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(readThresholds())); } catch (e) {}
+    if (!$("result").classList.contains("hidden")) run();
+  });
+  $("resetThresholds").addEventListener("click", () => {
+    try { localStorage.removeItem(STORE_KEY); } catch (e) {}
+    loadThresholds();
+    if (!$("result").classList.contains("hidden")) run();
+  });
+
+  // ---------- helpers ----------
+  const pad = (n) => String(n).padStart(2, "0");
+  function todayISO() { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; }
+  function toMinutes(hhmm) { const [h, m] = hhmm.split(":").map(Number); return h * 60 + m; }
+  function fromMinutes(min) { min = ((min % 1440) + 1440) % 1440; return `${pad(Math.floor(min / 60))}:${pad(min % 60)}`; }
+  function fmtTime(hhmm) {
+    let [h, m] = hhmm.split(":").map(Number);
+    const ap = h >= 12 ? "PM" : "AM";
+    h = h % 12 || 12;
+    return m ? `${h}:${pad(m)} ${ap}` : `${h} ${ap}`;
+  }
+  function fmtDate(iso) {
+    const [y, mo, d] = iso.split("-").map(Number);
+    return new Date(y, mo - 1, d).toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
+  }
+  function daysFromToday(iso) {
+    const [y, mo, d] = iso.split("-").map(Number);
+    const t = new Date(); t.setHours(0, 0, 0, 0);
+    return Math.round((new Date(y, mo - 1, d) - t) / 86400000);
+  }
+  function showMessage(text) { const m = $("message"); m.textContent = text; m.classList.remove("hidden"); $("result").classList.add("hidden"); }
+  function hideMessage() { $("message").classList.add("hidden"); }
+
+  function currentPlace() {
+    const v = $("place").value;
+    if (v === "custom") return custom;
+    return PLACES[v];
+  }
+
+  // ---------- place search (custom locations) ----------
+  $("place").addEventListener("change", () => {
+    $("placeSearch").classList.toggle("show", $("place").value === "custom");
+    if ($("place").value === "custom") $("placeQuery").focus();
+  });
+  async function findPlace() {
+    const q = $("placeQuery").value.trim();
+    const box = $("placeResults");
+    box.textContent = "";
+    if (!q) return;
+    try {
+      const r = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=6&language=en&countryCode=US`);
+      const data = await r.json();
+      if (!data.results || !data.results.length) { box.textContent = "No matches. Try a city name, like West Melbourne."; return; }
+      data.results.forEach((p) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.textContent = [p.name, p.admin1].filter(Boolean).join(", ");
+        b.addEventListener("click", () => {
+          custom = { name: b.textContent, lat: p.latitude, lon: p.longitude };
+          box.textContent = `Using ${custom.name}.`;
+        });
+        box.appendChild(b);
+      });
+    } catch (e) {
+      box.textContent = "Couldn't search right now. Check the connection and try again.";
+    }
+  }
+  $("placeFind").addEventListener("click", findPlace);
+  $("placeQuery").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); findPlace(); } });
+
+  // ---------- default times by event type ----------
+  function applyDefaultTimes(force) {
+    if (!force && $("start").value && $("end").value) return;
+    if ($("type").value === "day") {
+      $("start").value = "09:00"; $("end").value = "13:00";
+    } else {
+      const startMin = lastSunset ? Math.ceil((toMinutes(lastSunset) + 30) / 30) * 30 : 19 * 60;
+      $("start").value = fromMinutes(startMin);
+      $("end").value = fromMinutes(startMin + 180);
+    }
+  }
+  $("type").addEventListener("change", () => applyDefaultTimes(true));
+
+  // ---------- rating ----------
+  function rateHour(h, t) {
+    const reasons = [];
+    let level = 0; // 0 go, 1 maybe, 2 no-go
+    const bump = (lv, why) => { if (lv > level) level = lv; if (why) reasons.push({ lv, why }); };
+    if (THUNDER.has(h.code)) bump(2, "thunderstorms");
+    if (h.cloud > t.cloudNoGo) bump(2, `${h.cloud}% cloud cover`);
+    else if (h.cloud > t.cloudMaybe) bump(1, `${h.cloud}% cloud cover`);
+    if (h.rain > t.rainNoGo) bump(2, `${h.rain}% chance of rain`);
+    else if (h.rain > t.rainMaybe) bump(1, `${h.rain}% chance of rain`);
+    if (h.wind > t.windNoGo) bump(2, `${Math.round(h.wind)} mph wind`);
+    else if (h.wind > t.windMaybe) bump(1, `${Math.round(h.wind)} mph wind`);
+    if (h.gust > t.gustNoGo) bump(2, `gusts to ${Math.round(h.gust)} mph`);
+    return { level, reasons };
+  }
+  const LEVEL = [
+    { cls: "go", word: "GO" },
+    { cls: "maybe", word: "MAYBE" },
+    { cls: "nogo", word: "NO-GO" }
+  ];
+
+  // ---------- main ----------
+  async function run() {
+    hideMessage();
+    const place = currentPlace();
+    const date = $("date").value;
+    if (!place) { showMessage("Search for a place and pick it from the list, or choose one of the saved places."); return; }
+    if (!date) { showMessage("Pick the event date."); return; }
+
+    const ahead = daysFromToday(date);
+    if (ahead < 0) { showMessage("That date has already passed. Pick today or a future date."); return; }
+    if (ahead > 15) { showMessage(`Forecasts only reach about 16 days ahead, and ${fmtDate(date)} is ${ahead} days away. Check back closer to the event; the Weather Go/No-Go page says to check all week, 48 hours before, and the day of.`); return; }
+
+    const t = readThresholds();
+    const url = "https://api.open-meteo.com/v1/forecast"
+      + `?latitude=${place.lat}&longitude=${place.lon}`
+      + "&hourly=cloud_cover,precipitation_probability,wind_speed_10m,wind_gusts_10m,temperature_2m,weather_code"
+      + "&daily=sunrise,sunset"
+      + "&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=America%2FNew_York&forecast_days=16";
+
+    let data;
+    try {
+      const r = await fetch(url);
+      if (!r.ok) throw new Error(r.status);
+      data = await r.json();
+    } catch (e) {
+      showMessage("Couldn't reach the forecast service. Check the connection and press Check forecast again.");
+      return;
+    }
+
+    const di = data.daily.time.indexOf(date);
+    const sunrise = di >= 0 ? data.daily.sunrise[di].slice(11, 16) : null;
+    const sunset = di >= 0 ? data.daily.sunset[di].slice(11, 16) : null;
+    lastSunset = sunset;
+    applyDefaultTimes(false);
+
+    let startMin = toMinutes($("start").value || "19:00");
+    let endMin = toMinutes($("end").value || "22:00");
+    if (endMin <= startMin) endMin += 1440; // runs past midnight
+
+    const hours = [];
+    data.hourly.time.forEach((ts, i) => {
+      const [d, hm] = ts.split("T");
+      let mins = toMinutes(hm);
+      if (d === date) { /* same day */ }
+      else if (daysFromDates(date, d) === 1) mins += 1440;
+      else return;
+      if (mins >= Math.floor(startMin / 60) * 60 && mins <= endMin) {
+        hours.push({
+          label: hm,
+          cloud: data.hourly.cloud_cover[i],
+          rain: data.hourly.precipitation_probability[i] ?? 0,
+          wind: data.hourly.wind_speed_10m[i],
+          gust: data.hourly.wind_gusts_10m[i],
+          temp: data.hourly.temperature_2m[i],
+          code: data.hourly.weather_code[i]
+        });
+      }
+    });
+    if (!hours.length) { showMessage("No forecast hours fall inside that time window. Check the start and end times."); return; }
+
+    // rate
+    let worst = 0, nogoCount = 0, thunder = false;
+    const rated = hours.map((h) => {
+      const r = rateHour(h, t);
+      if (r.level > worst) worst = r.level;
+      if (r.level === 2) nogoCount++;
+      if (THUNDER.has(h.code)) thunder = true;
+      return { ...h, ...r };
+    });
+    // Overall: no-go if thunder or most hours are no-go; maybe if any hour is maybe/no-go
+    let overall = 0;
+    if (thunder || nogoCount > rated.length / 2) overall = 2;
+    else if (worst > 0) overall = 1;
+
+    // reasons: first time each problem appears
+    const seen = new Set();
+    const lines = [];
+    rated.forEach((h) => {
+      h.reasons.forEach((r) => {
+        const key = r.why.replace(/[0-9]+/g, "").trim();
+        if (!seen.has(key)) { seen.add(key); lines.push(`${capital(r.why)} by ${fmtTime(h.label)}`); }
+      });
+    });
+    if (!lines.length) lines.push("Clear enough, dry, and calm for the whole event.");
+    if (overall === 1 && nogoCount > 0) lines.push(`${nogoCount} of ${rated.length} hours are no-go; consider shifting the time or using the backup plan.`);
+    if (ahead >= 3) lines.push(`This is ${ahead} days out, so expect it to change. Check again 48 hours before and the day of.`);
+
+    // render verdict
+    const v = $("verdict");
+    v.className = `verdict ${LEVEL[overall].cls}`;
+    void v.offsetWidth; v.classList.add("reveal");
+    $("verdictWord").textContent = LEVEL[overall].word;
+    $("verdictWhere").textContent = `${place.name}, ${fmtDate(date)}, ${fmtTime($("start").value)} to ${fmtTime($("end").value)}`;
+    const ul = $("reasons"); ul.textContent = "";
+    lines.forEach((l) => { const li = document.createElement("li"); li.textContent = l; ul.appendChild(li); });
+
+    const sl = $("sunline");
+    if (sunset && $("type").value === "night") {
+      const suggested = fromMinutes(Math.ceil((toMinutes(sunset) + 30) / 30) * 30);
+      sl.innerHTML = `Sunset <strong>${fmtTime(sunset)}</strong>. Suggested start <strong>${fmtTime(suggested)}</strong> (about 30 minutes after sunset), with setup from <strong>${fmtTime(fromMinutes(toMinutes(suggested) - 90))}</strong>.`;
+    } else if (sunrise && sunset) {
+      sl.innerHTML = `Sunrise <strong>${fmtTime(sunrise)}</strong>, sunset <strong>${fmtTime(sunset)}</strong>. Solar filters on before any telescope points near the Sun.`;
+    } else { sl.textContent = ""; }
+
+    renderStrip(rated);
+    const isNight = $("type").value === "night";
+    const atOrtega = $("place").value === "ortega";
+    $("csc").classList.toggle("hidden", !(isNight && atOrtega));
+    $("cscOther").classList.toggle("hidden", !(isNight && !atOrtega));
+    $("result").classList.remove("hidden");
+    $("updated").textContent = `Checked ${new Date().toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}.`;
+    updateURL();
+  }
+
+  function daysFromDates(a, b) {
+    const [y1, m1, d1] = a.split("-").map(Number), [y2, m2, d2] = b.split("-").map(Number);
+    return Math.round((new Date(y2, m2 - 1, d2) - new Date(y1, m1 - 1, d1)) / 86400000);
+  }
+  function capital(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+  function renderStrip(rated) {
+    const tbl = $("strip");
+    tbl.textContent = "";
+    const thead = tbl.createTHead();
+    const hr = thead.insertRow();
+    const corner = document.createElement("th"); corner.scope = "col"; corner.textContent = ""; hr.appendChild(corner);
+    rated.forEach((h) => { const th = document.createElement("th"); th.scope = "col"; th.textContent = fmtTime(h.label); hr.appendChild(th); });
+
+    const body = tbl.createTBody();
+    const row = (label, fn) => {
+      const tr = body.insertRow();
+      const th = document.createElement("th"); th.scope = "row"; th.textContent = label; tr.appendChild(th);
+      rated.forEach((h) => { const td = tr.insertCell(); fn(td, h); });
+    };
+    const t = readThresholds();
+    const cls = (val, maybe, nogo) => val > nogo ? "cell-nogo" : val > maybe ? "cell-maybe" : "cell-go";
+
+    row("Verdict", (td, h) => {
+      td.innerHTML = `<div class="bar ${LEVEL[h.level].cls}" title="${LEVEL[h.level].word}"></div><span class="sr-only" style="position:absolute;left:-9999px">${LEVEL[h.level].word}</span>`;
+    });
+    row("Sky", (td, h) => { td.textContent = WEATHER[h.code] || "—"; if (THUNDER.has(h.code)) td.className = "cell-nogo"; });
+    row("Cloud cover", (td, h) => { td.textContent = `${h.cloud}%`; td.className = cls(h.cloud, t.cloudMaybe, t.cloudNoGo); });
+    row("Rain chance", (td, h) => { td.textContent = `${h.rain}%`; td.className = cls(h.rain, t.rainMaybe, t.rainNoGo); });
+    row("Wind", (td, h) => { td.textContent = `${Math.round(h.wind)} mph`; td.className = cls(h.wind, t.windMaybe, t.windNoGo); });
+    row("Gusts", (td, h) => { td.textContent = `${Math.round(h.gust)} mph`; td.className = h.gust > t.gustNoGo ? "cell-nogo" : ""; });
+    row("Temperature", (td, h) => { td.textContent = `${Math.round(h.temp)}°F`; });
+  }
+
+  // ---------- URL parameters (so each event can embed its own prefilled check) ----------
+  function readURL() {
+    const p = new URLSearchParams(location.search);
+    const place = p.get("place");
+    if (place && (PLACES[place] || place === "custom")) $("place").value = place;
+    if (place === "custom" && p.get("lat") && p.get("lon")) {
+      custom = { name: p.get("name") || "Event location", lat: parseFloat(p.get("lat")), lon: parseFloat(p.get("lon")) };
+      $("placeSearch").classList.add("show");
+      $("placeResults").textContent = `Using ${custom.name}.`;
+    }
+    if (p.get("type") === "day" || p.get("type") === "night") $("type").value = p.get("type");
+    $("date").value = p.get("date") || todayISO();
+    if (p.get("start")) $("start").value = p.get("start");
+    if (p.get("end")) $("end").value = p.get("end");
+    return !!p.get("date");
+  }
+  function updateURL() {
+    const p = new URLSearchParams();
+    p.set("place", $("place").value);
+    if ($("place").value === "custom" && custom) { p.set("lat", custom.lat); p.set("lon", custom.lon); p.set("name", custom.name); }
+    p.set("type", $("type").value);
+    p.set("date", $("date").value);
+    p.set("start", $("start").value);
+    p.set("end", $("end").value);
+    try { history.replaceState(null, "", `${location.pathname}?${p.toString()}`); } catch (e) {}
+  }
+
+  $("controls").addEventListener("submit", (e) => { e.preventDefault(); run(); });
+
+  loadThresholds();
+  readURL();
+  run(); // always show today's (or the linked event's) check on load
+})();
+</script>
+</body>
+</html>
